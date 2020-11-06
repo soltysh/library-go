@@ -70,16 +70,16 @@ type transportCache struct {
 }
 
 type Context struct {
-	Transport         http.RoundTripper
-	InsecureTransport http.RoundTripper
-	Challenges        challenge.Manager
-	Scopes            []auth.Scope
-	Actions           []string
-	Retries           int
-	Credentials       auth.CredentialStore
-	RequestModifiers  []transport.RequestModifier
-	Limiter           *rate.Limiter
-
+	Transport                 http.RoundTripper
+	InsecureTransport         http.RoundTripper
+	Challenges                challenge.Manager
+	Scopes                    []auth.Scope
+	Actions                   []string
+	Retries                   int
+	Credentials               auth.CredentialStore
+	RequestModifiers          []transport.RequestModifier
+	ImageSources              AlternativeImageSources
+	Limiter                   *rate.Limiter
 	DisableDigestVerification bool
 
 	lock             sync.Mutex
@@ -100,6 +100,7 @@ func (c *Context) Copy() *Context {
 		Retries:           c.Retries,
 		Credentials:       c.Credentials,
 		Limiter:           c.Limiter,
+		ImageSources:      c.ImageSources,
 
 		DisableDigestVerification: c.DisableDigestVerification,
 
