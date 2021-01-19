@@ -179,7 +179,7 @@ func TestAlternativeImageSources(t *testing.T) {
 				t.Errorf("add ICSP from file error = %v", err)
 			}
 		} else {
-			regContext.ImageSources.ICSPList = tt.icspList
+			regContext.ImageSources.icspList = tt.icspList
 		}
 		altSources, err := regContext.alternativeImageSources(imageRef)
 		if err != nil {

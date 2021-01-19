@@ -18,73 +18,70 @@ import (
 
 // AlternativeImageSources holds ImageContentSourcePolicy variables to look up image sources
 type AlternativeImageSources struct {
-	ICSPFile     string
-	ICSPList     []operatorv1alpha1.ImageContentSourcePolicy
-	ICSPClientFn func() (operatorv1alpha1client.ImageContentSourcePolicyInterface, error)
+	icspFile     string
+	icspList     []operatorv1alpha1.ImageContentSourcePolicy
+	icspClientFn func() (operatorv1alpha1client.ImageContentSourcePolicyInterface, error)
 }
 
 // WithICSP returns a Context with ImageContentSourcePolicy variables populated
 func (c *Context) WithICSP(icspFile string, icspClientFn func() (operatorv1alpha1client.ImageContentSourcePolicyInterface, error)) *Context {
 	c.ImageSources = AlternativeImageSources{
-		ICSPFile:     icspFile,
-		ICSPClientFn: icspClientFn,
+		icspFile:     icspFile,
+		icspClientFn: icspClientFn,
 	}
 	return c
 }
 
 // addICSPsFromCluster will lookup ICSPs from cluster. Logs errors rather than returning errors. By design,
 // this function has no way of knowing whether it expects to connect to a cluster or not. That is up the the caller.
-func (c *Context) addICSPsFromCluster() {
-	icspClient, err := c.ImageSources.ICSPClientFn()
+func (c *Context) addICSPsFromCluster() error {
+	icspClient, err := c.ImageSources.icspClientFn()
 	if err != nil || icspClient == nil {
-		klog.V(4).Infof("no client to access ImageContentSourcePolicies in cluster: %v", err)
-		return
+		return fmt.Errorf("no client to access ImageContentSourcePolicies in cluster: %v", err)
 	}
 	icsps, err := icspClient.List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		// may or may not have access to ICSPs in cluster
 		// don't error if can't access ICSPs
-		klog.V(4).Infof("did not access any ImageContentSourcePolicies in cluster: %v", err)
-		return
+		return fmt.Errorf("did not access any ImageContentSourcePolicies in cluster: %v", err)
 	}
 	if len(icsps.Items) == 0 {
 		// might be looking up implicitly, log only
 		klog.V(4).Info("no ImageContentSourcePolicies found in cluster")
-		return
 	}
-	c.ImageSources.ICSPList = append(c.ImageSources.ICSPList, icsps.Items...)
+	c.ImageSources.icspList = append(c.ImageSources.icspList, icsps.Items...)
+	return nil
 }
 
 // addImageSourcePoliciesFromFile appends to list of alternative image sources from ICSP file
 // returns error if no icsp object decoded from file data
 func (c *Context) addImageSourcePoliciesFromFile() error {
-	if len(c.ImageSources.ICSPFile) == 0 {
+	if len(c.ImageSources.icspFile) == 0 {
 		return nil
 	}
-	icspData, err := ioutil.ReadFile(c.ImageSources.ICSPFile)
+	icspData, err := ioutil.ReadFile(c.ImageSources.icspFile)
 	if err != nil {
-		return fmt.Errorf("unable to read ImageContentSourceFile %s: %v", c.ImageSources.ICSPFile, err)
+		return fmt.Errorf("unable to read ImageContentSourceFile %s: %v", c.ImageSources.icspFile, err)
 	}
 	if len(icspData) == 0 {
-		return fmt.Errorf("no data found in ImageContentSourceFile %s", c.ImageSources.ICSPFile)
+		return fmt.Errorf("no data found in ImageContentSourceFile %s", c.ImageSources.icspFile)
 	}
 	icspObj, err := runtime.Decode(operatorv1alpha1scheme.Codecs.UniversalDeserializer(), icspData)
 	if err != nil {
-		return fmt.Errorf("error decoding ImageContentSourcePolicy from %s: %v", c.ImageSources.ICSPFile, err)
+		return fmt.Errorf("error decoding ImageContentSourcePolicy from %s: %v", c.ImageSources.icspFile, err)
 	}
-	var icsp *operatorv1alpha1.ImageContentSourcePolicy
-	var ok bool
-	if icsp, ok = icspObj.(*operatorv1alpha1.ImageContentSourcePolicy); !ok {
-		return fmt.Errorf("could not decode ImageContentSourcePolicy from %s", c.ImageSources.ICSPFile)
+	icsp, ok := icspObj.(*operatorv1alpha1.ImageContentSourcePolicy)
+	if !ok {
+		return fmt.Errorf("could not decode ImageContentSourcePolicy from %s", c.ImageSources.icspFile)
 	}
-	c.ImageSources.ICSPList = append(c.ImageSources.ICSPList, *icsp)
+	c.ImageSources.icspList = append(c.ImageSources.icspList, *icsp)
 	return nil
 }
 
 // alternativeImageSources returns list of DockerImageReference objects from list of ImageContentSourcePolicy objects
 func (a *Context) alternativeImageSources(imageRef imagereference.DockerImageReference) ([]imagereference.DockerImageReference, error) {
 	var imageSources []imagereference.DockerImageReference
-	for _, icsp := range a.ImageSources.ICSPList {
+	for _, icsp := range a.ImageSources.icspList {
 		repoDigestMirrors := icsp.Spec.RepositoryDigestMirrors
 		var sourceMatches bool
 		for _, rdm := range repoDigestMirrors {
@@ -133,37 +130,32 @@ func (a *Context) alternativeImageSources(imageRef imagereference.DockerImageRef
 // original image-reference of user-given image (that may be different from user-given in case of mirrored images).
 func (c *Context) PreferredImageSource(image imagereference.DockerImageReference, alwaysTryAlternativeSources, insecure bool) (imagereference.DockerImageReference, distribution.Repository, distribution.ManifestService, error) {
 	ctx := context.TODO()
-	var (
-		err       error
-		repo      distribution.Repository
-		manifests distribution.ManifestService
-	)
 	// alwaysTryAlternativeSources is false when don't want implicit alternative image source lookup
-	// ICSPFile indicates explicit alternative image source lookup
-	if len(c.ImageSources.ICSPFile) == 0 && !alwaysTryAlternativeSources {
-		if repo, err = c.Repository(ctx, image.DockerClientDefaults().RegistryURL(), image.RepositoryName(), insecure); err == nil {
-			manifests, err = repo.Manifests(ctx)
-			return image, repo, manifests, err
+	// icspFile indicates explicit alternative image source lookup
+	if !alwaysTryAlternativeSources {
+		repo, err := c.Repository(ctx, image.DockerClientDefaults().RegistryURL(), image.RepositoryName(), insecure)
+		if err != nil {
+			return imagereference.DockerImageReference{}, nil, nil, err
 		}
+		manifests, err := repo.Manifests(ctx)
+		return image, repo, manifests, err
+	}
+	if err := c.addImageSourcePoliciesFromFile(); err != nil {
 		return imagereference.DockerImageReference{}, nil, nil, err
 	}
-	if err = c.addImageSourcePoliciesFromFile(); err != nil {
+	if err := c.addICSPsFromCluster(); err != nil {
 		return imagereference.DockerImageReference{}, nil, nil, err
 	}
-	c.addICSPsFromCluster()
 	altSources, err := c.alternativeImageSources(image)
 	if err != nil {
 		return imagereference.DockerImageReference{}, nil, nil, err
 	}
 	for _, icsRef := range altSources {
 		replacedImage := replaceImage(icsRef, image)
-		if repo, err = c.Repository(ctx, replacedImage.DockerClientDefaults().RegistryURL(), replacedImage.RepositoryName(), insecure); err == nil {
-			manifests, err = repo.Manifests(ctx)
+		if repo, err := c.Repository(ctx, replacedImage.DockerClientDefaults().RegistryURL(), replacedImage.RepositoryName(), insecure); err == nil {
+			manifests, err := repo.Manifests(ctx)
 			return replacedImage, repo, manifests, err
 		}
-	}
-	if err != nil {
-		return imagereference.DockerImageReference{}, nil, nil, fmt.Errorf("unable to connect to imagerepository %s: %v", image.String(), err)
 	}
 	return imagereference.DockerImageReference{}, nil, nil, nil
 }
