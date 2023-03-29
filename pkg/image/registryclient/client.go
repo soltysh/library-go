@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/net/http2"
 	"golang.org/x/time/rate"
 
 	"k8s.io/klog/v2"
@@ -487,6 +488,11 @@ func isTemporaryHTTPError(err error) (time.Duration, bool) {
 		case http.StatusInternalServerError, http.StatusGatewayTimeout, http.StatusServiceUnavailable, http.StatusBadGateway:
 			return 5 * time.Second, true
 		case http.StatusTooManyRequests:
+			return 2 * time.Second, true
+		}
+	case *http2.StreamError:
+		switch t.Code {
+		case http2.ErrCodeRefusedStream:
 			return 2 * time.Second, true
 		}
 	}
