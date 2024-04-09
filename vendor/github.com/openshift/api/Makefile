@@ -153,8 +153,7 @@ write-available-featuresets:
 
 .PHONY: clean
 clean:
-	rm -f render write-available-featuresets models-schema
-	rm -rf tools/_output
+	rm render write-available-featuresets
 
 VERSION     ?= $(shell git describe --always --abbrev=7)
 MUTABLE_TAG ?= latest

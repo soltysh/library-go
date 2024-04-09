@@ -133,3 +133,8 @@ require (
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
+
+replace (
+	github.com/openshift/api => github.com/dinhxuanvu/openshift-api v0.0.0-20240402064831-ef66856341d1
+	github.com/openshift/client-go => github.com/soltysh/client-go v0.0.0-20240405120137-b182b8fcff58
+)

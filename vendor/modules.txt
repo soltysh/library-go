@@ -255,8 +255,8 @@ github.com/opencontainers/runc/libcontainer/user
 ## explicit; go 1.19
 github.com/opencontainers/selinux/go-selinux
 github.com/opencontainers/selinux/pkg/pwalkdir
-# github.com/openshift/api v0.0.0-20240405095747-3e50337fcaea
-## explicit; go 1.21
+# github.com/openshift/api v0.0.0-20240405095747-3e50337fcaea => github.com/dinhxuanvu/openshift-api v0.0.0-20240402064831-ef66856341d1
+## explicit; go 1.22.0
 github.com/openshift/api
 github.com/openshift/api/annotations
 github.com/openshift/api/apiserver
@@ -339,8 +339,8 @@ github.com/openshift/build-machinery-go/make/targets/golang
 github.com/openshift/build-machinery-go/make/targets/openshift
 github.com/openshift/build-machinery-go/make/targets/openshift/operator
 github.com/openshift/build-machinery-go/scripts
-# github.com/openshift/client-go v0.0.0-20240405120947-c67c8325cdd8
-## explicit; go 1.21
+# github.com/openshift/client-go v0.0.0-20240405120947-c67c8325cdd8 => github.com/soltysh/client-go v0.0.0-20240405120137-b182b8fcff58
+## explicit; go 1.22.0
 github.com/openshift/client-go/apps/applyconfigurations/apps/v1
 github.com/openshift/client-go/apps/applyconfigurations/internal
 github.com/openshift/client-go/apps/clientset/versioned/scheme
@@ -1509,3 +1509,5 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
+# github.com/openshift/api => github.com/dinhxuanvu/openshift-api v0.0.0-20240402064831-ef66856341d1
+# github.com/openshift/client-go => github.com/soltysh/client-go v0.0.0-20240405120137-b182b8fcff58
